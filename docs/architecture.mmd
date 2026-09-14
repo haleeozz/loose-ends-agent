@@ -1,0 +1,11 @@
+flowchart LR
+    UI["Browser dashboard"] --> RM["Starlette RunManager"]
+    RM --> AR["AgentRuntime<br/>one live Strands session"]
+    AR --> SA["Strands Agent"]
+    SA <--> Q["Ollama<br/>qwen3:14b"]
+    SA --> T["Evidence and action tools"]
+    T --> S["AgentWorkspace<br/>structured state"]
+    D["Local notes and todos"] --> T
+    S --> R["Ignored local reports"]
+    T -->|"context.interrupt(...)"| UI
+    UI -->|"interruptResponse"| RM

@@ -1,20 +1,58 @@
 # Loose Ends Agent
 
-Loose Ends Agent is a local-first Strands Agents application for the AWS Agents for Humans Hackathon. A real Strands `Agent` chooses which notes, task exports, and documents to inspect; calls evidence-preserving tools; decides which records describe the same unfinished obligation; and either creates a safe next action or pauses through a Strands human-in-the-loop interrupt.
+Loose Ends Agent is a local-first personal obligation reconciler built with the
+[Strands Agents SDK](https://strandsagents.com/) for the AWS Agents for Humans
+Hackathon. It scans notes, todo exports, and documents, connects evidence that
+describes the same unfinished obligation, and turns safe cases into concrete
+next actions. When evidence conflicts or intent is ambiguous, it pauses the
+actual agent run for a human decision.
 
-No tool sends messages, purchases anything, or mutates source documents.
+The project does not send messages, purchase anything, edit source documents,
+or silently choose between conflicting commitments.
 
-## Architecture
+## The Problem
 
-The default `agent` mode uses Strands as the orchestration brain. Its explicit loop is:
+Personal obligations rarely live in one clean task list. A deadline may appear
+in a note, supporting details may live in a todo export, and another document
+may contradict the date. Traditional task managers preserve each record but do
+not reconcile what those records mean together.
+
+That leaves people with the real work: finding duplicates, noticing conflicts,
+deciding what is safe, and remembering which source justified the result.
+
+## The Solution
+
+Loose Ends Agent treats each source record as evidence. A real Strands
+`Agent` decides what to inspect, which tools to call, whether records describe
+the same obligation, whether a next action is sufficiently grounded, and when
+human judgment is required.
+
+Every decision remains tied to source path, line number, original text, and
+detected date. Human escalation is a first-class workflow state implemented
+with a genuine Strands interrupt, not a text label.
+
+## What The Agent Does
+
+1. Lists available local source files.
+2. Scans relevant notes, todo exports, and documents.
+3. Extracts unfinished obligations while preserving provenance.
+4. Resolves explicit and relative deadline candidates.
+5. Finds potentially related evidence without automatically merging it.
+6. Creates evidence-backed loose ends.
+7. Produces a grounded ready action when acting is safe.
+8. Calls `request_human_decision` when evidence conflicts or intent is unresolved.
+9. Resumes the same Strands session after the browser submits a choice.
+10. Writes a structured local action log after reconciliation completes.
+
+## Strands Architecture
+
+Strands is the orchestration brain. The model controls the live loop:
 
 ```text
 observe -> reason -> tool call -> observe result -> decide -> act or escalate
 ```
 
-The model controls source selection, tool order, semantic grouping, safety decisions, escalation, and next-action wording. Deterministic Python utilities still handle file parsing, candidate extraction, date parsing, and similarity suggestions. Structured workspace state, not model prose, is authoritative for evidence and decisions.
-
-The agent has these tools:
+The production tool surface is:
 
 - `list_sources`
 - `scan_notes`
@@ -27,67 +65,167 @@ The agent has these tools:
 - `request_human_decision`
 - `write_action_log`
 
-`request_human_decision` records a `human_decision_required` state and raises a real Strands interrupt. A caller can present the interrupt and resume the same agent with an interrupt response.
+Deterministic Python utilities perform parsing, extraction, date handling,
+similarity suggestions, provenance validation, and action grounding. They do
+not script the agent's tool order or replace the Strands decision loop.
 
-## Environment
+```mermaid
+flowchart LR
+    UI["Browser dashboard"] --> RM["Starlette RunManager"]
+    RM --> AR["AgentRuntime<br/>one live Strands session"]
+    AR --> SA["Strands Agent"]
+    SA <--> Q["Ollama<br/>qwen3:14b"]
+    SA --> T["Evidence and action tools"]
+    T --> S["AgentWorkspace<br/>structured state"]
+    D["Local notes and todos"] --> T
+    S --> R["Ignored local reports"]
+    T -->|"context.interrupt(...)"| UI
+    UI -->|"interruptResponse"| RM
+```
 
-Prerequisites: Python 3.10 or newer and [Ollama](https://ollama.com/) running locally.
+The standalone Mermaid source is available in
+[`docs/architecture.mmd`](docs/architecture.mmd).
+
+## Provenance And Human-in-the-Loop
+
+Each evidence record includes:
+
+- stable evidence ID
+- source path and source type
+- source line number
+- original evidence text
+- supported due date
+- extraction confidence
+
+Tool contracts reject unknown evidence IDs, unsupported dates, unrelated
+merges, and actions that introduce people, plans, entities, or relationships
+not present in the assigned evidence.
+
+When `request_human_decision` is accepted, it calls the Strands tool context's
+`interrupt(...)` method. The web run becomes **Paused - human decision
+required** and is explicitly incomplete. The UI displays the question,
+choices, and conflicting provenance. Submitting a choice sends a Strands
+`interruptResponse` to the same in-memory Agent instance. Historical JSON
+reports are read-only and are never presented as resumable after restart.
+
+## Requirements
+
+- Python 3.10 or newer
+- [Ollama](https://ollama.com/)
+- approximately 10 GB of free disk space for `qwen3:14b`
+- enough system or GPU memory to run the selected Ollama model comfortably
+
+The validated default is the tool-capable `qwen3:14b` model. Ollama
+preflight checks the model metadata and refuses inference when tool capability
+is absent.
+
+## Setup
+
+Windows PowerShell:
 
 ```powershell
+git clone <YOUR_REPOSITORY_URL>
+cd loose-ends-agent
+
 py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev,local-model]"
+
 ollama pull qwen3:14b
 ```
 
-Verify that Strands can construct the real Agent and all tools without invoking a model:
+Verify the SDK, model metadata, and tool construction without invoking the
+model:
 
 ```powershell
 loose-ends --check-sdk --as-of 2026-09-12
 ```
 
-## Local Agent Demo
+## Run The Web Demo
 
-Agent mode defaults to Ollama. It refuses to invoke models that do not advertise tool calling.
-
-```powershell
-loose-ends --demo --provider ollama --model qwen3:14b --as-of 2026-09-12
-```
-
-`--demo` prints high-level loop phases and tool calls, never private chain-of-thought. Outputs are written to:
-
-- `reports/agent_result.md`
-- `reports/agent_run_state.json`
-- `reports/agent_action_log.json` when the agent completes and calls the logging tool
-
-The validated local model is `qwen3:14b`. Model downloads are separate and can be several gigabytes. The preflight refuses to invoke an Ollama model that does not advertise tool support.
-
-## Local Product Demo
-
-Run the judge-facing local dashboard with the validated `qwen3:14b` model:
+Start Ollama, then launch the local dashboard:
 
 ```powershell
 loose-ends-web
 ```
 
-Open `http://127.0.0.1:8000`. The dashboard starts one model run at a time, shows source coverage and the live high-level tool trail, and presents Strands interrupts as **Paused — human decision required**. Submitting a choice resumes the same in-memory Agent and Strands session.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000), then:
 
-For the shortest judge-facing path, start a fresh run, wait for the conflicting passport evidence to pause the session, select `2026-09-30`, and submit the decision. The dashboard then shows the same Agent instance and incremented resume counter, followed by the grounded passport ready action. Because source selection and tool order are controlled by the live model, the exact number and order of preceding tool calls can vary.
+1. Click **Start new run**.
+2. Watch the real agent call `list_sources`, `scan_notes`, and `scan_tasks`.
+3. Wait for **Paused - human decision required**.
+4. Inspect both passport records and their conflicting dates.
+5. Select `2026-09-30`.
+6. Click **Submit decision and resume**.
+7. Observe `Invocation 2 - 1 resumes`, the grounded ready action, and the
+   natural `end_turn` completion.
 
-The checked-in demo corpus is intentionally narrow: one passport note and one passport todo with conflicting deadlines. This keeps the recorded flow reliable while all scanning, grouping, validation, interruption, and resumption still run through the production Strands agent and tools.
+Only one model invocation runs at a time. The checked-in demo corpus is
+intentionally narrow so the recording path exercises the complete production
+workflow without unrelated obligations:
 
-The live session intentionally exists only inside the local server process. JSON reports loaded after a restart are labeled historical and read-only; they are never presented as resumable.
+- `data/notes/weekend_notes.md`: passport deadline `2026-10-01`
+- `data/todos/personal.json`: passport deadline `2026-09-30`
 
-Run the focused real-model human-interrupt verification with:
+The verified result is a ready action to renew the passport with the compliant
+photo and old passport, using the human-selected `2026-09-30` deadline.
+
+## CLI And Verification
+
+Run the agent with high-level tool tracing:
 
 ```powershell
-.venv\Scripts\python.exe scripts\verify_hitl_agent.py
+loose-ends --demo --provider ollama --model qwen3:14b --as-of 2026-09-12
 ```
 
-This integration scenario deterministically seeds the already-extracted conflicting passport evidence, then leaves the act-or-escalate decision to a real Strands Agent. It succeeds only when Strands returns `stop_reason=interrupt`.
+Run the focused real-model interrupt verification:
 
-## Bedrock Demo
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_hitl_agent.py
+```
+
+Run the deterministic fallback:
+
+```powershell
+loose-ends --mode fallback --as-of 2026-09-12 --show-all
+```
+
+Run the test suite:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+The current suite contains 25 tests covering extraction, provenance,
+grounding, merge safety, first-class interrupts, same-session web resume,
+historical report safety, and idempotency contracts.
+
+## Supported Inputs
+
+- Markdown and plain-text notes
+- JSON todo exports containing a list, `todos`, or `tasks`
+- task text fields named `task`, `title`, `text`, or `name`
+- optional `due`, `status`, and `context` fields
+
+Completed or cancelled items are ignored.
+
+## Limitations
+
+- The demo is local-only and currently uses Ollama; there is no hosted deployment.
+- Live interrupt/resume state is in memory and is lost when the server restarts.
+- The default `qwen3:14b` model has meaningful local hardware requirements.
+- Model-selected tool order and wording remain nondeterministic, although tool
+  contracts enforce deterministic provenance and safety boundaries.
+- The recording fixture intentionally demonstrates one conflicting passport
+  obligation. Larger mixed-obligation corpora can expose model convergence
+  edge cases and are not the submission demo path.
+- No external action execution, email integration, authentication, or
+  production persistence is included yet.
+
+## Optional Amazon Bedrock Provider
+
+The CLI also supports Bedrock:
 
 ```powershell
 $env:AWS_PROFILE = "your-profile"
@@ -95,32 +233,10 @@ $env:AWS_REGION = "us-east-1"
 loose-ends --demo --provider bedrock --model global.anthropic.claude-sonnet-4-6 --as-of 2026-09-12
 ```
 
-Bedrock requires a valid credential source, a region, access to the selected model, and IAM permissions for `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. The CLI checks basic configuration and stops before constructing or invoking Bedrock when it is missing.
+This requires a valid AWS credential source, enabled model access, and
+`bedrock:InvokeModel` / `bedrock:InvokeModelWithResponseStream`
+permissions. AWS is not required for the local Ollama demo.
 
-## Deterministic Fallback
+## License
 
-The original local pipeline remains available for tests, offline operation, and comparisons:
-
-```powershell
-loose-ends --mode fallback --as-of 2026-09-12 --show-all
-```
-
-It writes `reports/loose_ends_report.md` and `reports/loose_ends_report.json`.
-
-## Inputs
-
-- Markdown and text files (`.md`, `.txt`)
-- JSON todo exports containing a list, a `todos` list, or a `tasks` list
-- Completed lines (`[x]`, `done`, `completed`, `cancelled`) are ignored
-
-JSON records may use `task`, `title`, `text`, or `name`; optional fields include `due`, `status`, and `context`.
-
-## Tests
-
-```powershell
-.venv\Scripts\python.exe -m pytest
-```
-
-## Windows Python Repair
-
-`scripts/repair_python_discovery.ps1` repairs user-level PATH ordering and stale `python.cmd` / `py.cmd` compatibility shims without changing `.venv`. Existing shims are backed up as `*.pre-loose-ends.bak` before the script is run.
+Released under the [MIT License](LICENSE).
