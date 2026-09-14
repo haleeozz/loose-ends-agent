@@ -124,7 +124,7 @@ is absent.
 Windows PowerShell:
 
 ```powershell
-git clone <YOUR_REPOSITORY_URL>
+git clone https://github.com/haleeozz/loose-ends-agent.git
 cd loose-ends-agent
 
 py -3.12 -m venv .venv
