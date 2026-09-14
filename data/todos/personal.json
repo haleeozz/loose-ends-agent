@@ -1,0 +1,10 @@
+{
+  "todos": [
+    {
+      "task": "Renew passport",
+      "due": "2026-09-30",
+      "context": "Bring a compliant photo and the old passport",
+      "status": "open"
+    }
+  ]
+}

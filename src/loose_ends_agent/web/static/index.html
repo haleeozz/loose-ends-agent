@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loose Ends Agent</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="app-bar">
+    <div>
+      <h1>Loose Ends</h1>
+      <p class="product-subtitle">Personal obligations workspace</p>
+    </div>
+    <div class="app-actions">
+      <span class="model-badge"><span class="status-dot"></span>Local · qwen3:14b</span>
+      <button id="start-run" class="button button-primary" type="button">Start new run</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="status-band" class="status-band" aria-live="polite">
+      <div>
+        <p class="eyebrow">Run status</p>
+        <h2 id="status-title">Loading workspace</h2>
+        <p id="status-detail">Checking the local agent session.</p>
+      </div>
+      <div id="run-meta" class="run-meta"></div>
+    </section>
+
+    <section class="metrics" aria-label="Run summary">
+      <div class="metric"><span id="metric-evidence">0</span><small>Evidence records</small></div>
+      <div class="metric"><span id="metric-loose-ends">0</span><small>Loose ends</small></div>
+      <div class="metric"><span id="metric-ready">0</span><small>Ready actions</small></div>
+      <div class="metric"><span id="metric-decisions">0</span><small>Human decisions</small></div>
+      <div class="metric metric-wide"><span id="metric-coverage">0 / 0</span><small>Source types inspected</small></div>
+    </section>
+
+    <section id="reconciliation-warning" class="notice" hidden></section>
+
+    <section id="decision-section" class="decision-section" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Human decision</p>
+          <h2 id="decision-question"></h2>
+        </div>
+        <span class="state-tag state-paused">Paused</span>
+      </div>
+      <p id="decision-rationale" class="decision-rationale"></p>
+      <form id="decision-form">
+        <div id="decision-options" class="decision-options"></div>
+        <button id="resume-run" class="button button-decision" type="submit">Submit decision and resume</button>
+      </form>
+      <div class="evidence-heading">
+        <h3>Conflicting evidence</h3>
+        <span>Source records are shown exactly as observed</span>
+      </div>
+      <div id="decision-evidence" class="evidence-grid"></div>
+    </section>
+
+    <section class="workspace-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Workspace</p>
+          <h2>Loose ends</h2>
+        </div>
+        <div id="tabs" class="tabs" role="tablist">
+          <button class="tab active" data-filter="all" type="button">All <span id="count-all">0</span></button>
+          <button class="tab" data-filter="paused" type="button">Paused <span id="count-paused">0</span></button>
+          <button class="tab" data-filter="unresolved" type="button">Unresolved <span id="count-unresolved">0</span></button>
+          <button class="tab" data-filter="ready" type="button">Ready <span id="count-ready">0</span></button>
+          <button class="tab" data-filter="completed" type="button">Completed <span id="count-completed">0</span></button>
+        </div>
+      </div>
+      <div id="loose-ends-list" class="loose-ends-list"></div>
+    </section>
+
+    <section class="activity-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Agent activity</p>
+          <h2>Decision trail</h2>
+        </div>
+        <span id="activity-count" class="muted"></span>
+      </div>
+      <ol id="activity-list" class="activity-list"></ol>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="alert" hidden></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

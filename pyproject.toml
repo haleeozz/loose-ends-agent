@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loose-ends-agent"
+version = "0.1.0"
+description = "A local-first agent that reconciles unfinished personal obligations."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+  "python-dateutil>=2.9,<3",
+  "starlette>=0.45,<1",
+  "strands-agents>=1.0,<2",
+  "uvicorn>=0.35,<1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+local-model = ["ollama>=0.6,<1"]
+
+[project.scripts]
+loose-ends = "loose_ends_agent.cli:main"
+loose-ends-web = "loose_ends_agent.web.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
