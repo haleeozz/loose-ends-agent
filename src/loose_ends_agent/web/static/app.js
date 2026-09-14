@@ -86,9 +86,13 @@ function renderWarning(run) {
 
 function evidenceCard(record) {
   return `<article class="evidence-record">
-    <div class="evidence-meta"><span>${escapeHtml(record.source_path)}${record.line_number ? `:${record.line_number}` : ""}</span><span class="date-chip">${escapeHtml(record.due_date || "No date")}</span></div>
-    <p>${escapeHtml(record.evidence)}</p>
-    <div class="evidence-meta"><span>${escapeHtml(record.source_type)}</span><span>${Math.round((record.confidence || 0) * 100)}% confidence</span></div>
+    <div class="evidence-source">
+      <span class="source-type">${escapeHtml(record.source_type)}</span>
+      <strong>${escapeHtml(record.source_path)}${record.line_number ? `:${record.line_number}` : ""}</strong>
+      <span class="date-chip">${escapeHtml(record.due_date || "No date")}</span>
+    </div>
+    <p class="evidence-copy">${escapeHtml(record.evidence)}</p>
+    <div class="evidence-confidence">${Math.round((record.confidence || 0) * 100)}% extraction confidence</div>
   </article>`;
 }
 
@@ -114,7 +118,14 @@ function renderDecision(run) {
 }
 
 function provenanceRow(record) {
-  return `<div class="provenance-row"><strong>${escapeHtml(record.source_path)}${record.line_number ? `:${record.line_number}` : ""}</strong>${escapeHtml(record.evidence)}${record.due_date ? ` · ${escapeHtml(record.due_date)}` : ""}</div>`;
+  return `<div class="provenance-row">
+    <div class="provenance-header">
+      <span class="source-type">${escapeHtml(record.source_type)}</span>
+      <strong>${escapeHtml(record.source_path)}${record.line_number ? `:${record.line_number}` : ""}</strong>
+      ${record.due_date ? `<span class="date-chip">${escapeHtml(record.due_date)}</span>` : ""}
+    </div>
+    <p class="provenance-copy">${escapeHtml(record.evidence)}</p>
+  </div>`;
 }
 
 function looseEndRow(item) {
@@ -127,9 +138,9 @@ function looseEndRow(item) {
       <span class="state-tag state-${itemCategory}">${stateLabel(item)}</span>
     </summary>
     <div class="loose-end-detail">
-      <div>
-        <h3>Decision</h3>
-        <p>${escapeHtml(item.next_action || item.human_decision?.question || "No action recorded yet.")}</p>
+      <div class="decision-summary">
+        <h3>${itemCategory === "ready" ? "Next action" : "Decision"}</h3>
+        <p class="action-text">${escapeHtml(item.next_action || item.human_decision?.question || "No action recorded yet.")}</p>
         <p class="muted">${escapeHtml(item.decision_rationale || item.grouping_rationale)}</p>
       </div>
       <div>
